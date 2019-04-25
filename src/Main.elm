@@ -7,6 +7,7 @@ import Html.Events exposing (..)
 import List
 import Tuple
 import Random
+import Regex
 
 
 main =
@@ -24,7 +25,7 @@ type alias Jugador =
 
 
 type alias Model =
-    { jugadores : List (Jugador), jugador : String, patente : Maybe Patente }
+    { jugadores : List (Jugador), jugador : String, patente : Maybe Patente, palabra : String }
 
 
 type alias Letra =
@@ -37,7 +38,7 @@ type Patente
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { jugadores = [], jugador = "", patente = Nothing }, Cmd.none )
+    ( { jugadores = [ { nombre = "coco", puntos = 0 } ], jugador = "", patente = Nothing, palabra = "" }, Cmd.none )
 
 
 
@@ -50,6 +51,8 @@ type Msg
     | ChauJugador Jugador
     | Empezar
     | NuevaPatente Patente
+    | Palabra String
+    | NuevaPalabra
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -74,6 +77,13 @@ update msg model =
         NuevaPatente nuevaPatente ->
             ( { model | patente = Just nuevaPatente }, Cmd.none )
 
+        Palabra p ->
+            ( { model | palabra = p }, Cmd.none )
+
+        NuevaPalabra ->
+            -- FIXME
+            ( model, Cmd.none )
+
 
 
 -- SUBSCRIPTIONS
@@ -94,13 +104,20 @@ view model =
         Nothing ->
             elegirJugadores model
 
-        Just p ->
-            juego p
+        Just _ ->
+            juego model
 
 
-juego : Patente -> Html Msg
-juego patente =
-    text (show patente)
+juego : Model -> Html Msg
+juego model =
+    div []
+        [ text (show model.patente)
+        , input
+            [ type_ "text", placeholder "palabra", onInput Palabra, value model.palabra ]
+            []
+        , button [ onClick Empezar, disabled (not (palabraValida model.palabra model.patente)) ] [ text "Va" ]
+        , text (Debug.toString model)
+        ]
 
 
 elegirJugadores : Model -> Html Msg
@@ -143,13 +160,32 @@ jugadorLi jugador =
 -- UTILS
 
 
-show : Patente -> String
-show (Patente j k l) =
-    String.fromList
-        [ j.letra
-        , k.letra
-        , l.letra
-        ]
+palabraValida : String -> Maybe Patente -> Bool
+palabraValida palabra mp =
+    case mp of
+        Nothing ->
+            False
+
+        Just (Patente j k l) ->
+            let
+                rx =
+                    Maybe.withDefault Regex.never <| Regex.fromStringWith { caseInsensitive = True, multiline = False } (".*" ++ String.fromChar (j.letra) ++ ".*" ++ String.fromChar (k.letra) ++ ".*" ++ String.fromChar (l.letra) ++ ".*")
+            in
+                Regex.contains rx palabra
+
+
+show : Maybe Patente -> String
+show m =
+    case m of
+        Nothing ->
+            "_"
+
+        Just (Patente j k l) ->
+            String.fromList
+                [ j.letra
+                , k.letra
+                , l.letra
+                ]
 
 
 cycle : List a -> List a
